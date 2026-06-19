@@ -32,33 +32,33 @@ class Agent:
 
 
 agents: dict[str, Agent] = {
-    "chatbot": Agent(description="A simple chatbot.", graph_like=chatbot),
+    "chatbot": Agent(description="基础对话助手，适合快速验证链路。", graph_like=chatbot),
     "research-assistant": Agent(
-        description="A research assistant with web search and calculator.",
+        description="带网页检索和计算能力的研究助手。",
         graph_like=research_assistant,
     ),
     "rag-assistant": Agent(
-        description="A RAG assistant with access to information in a database.",
+        description="基于示例知识库的文档问答助手。",
         graph_like=rag_assistant,
     ),
-    "command-agent": Agent(description="A command agent.", graph_like=command_agent),
-    "bg-task-agent": Agent(description="A background task agent.", graph_like=bg_task_agent),
+    "command-agent": Agent(description="命令式任务演示助手。", graph_like=command_agent),
+    "bg-task-agent": Agent(description="支持后台任务状态展示的演示助手。", graph_like=bg_task_agent),
     "langgraph-supervisor-agent": Agent(
-        description="A langgraph supervisor agent", graph_like=langgraph_supervisor_agent
+        description="多助手调度演示助手。", graph_like=langgraph_supervisor_agent
     ),
     "langgraph-supervisor-hierarchy-agent": Agent(
-        description="A langgraph supervisor agent with a nested hierarchy of agents",
+        description="带层级子助手结构的多助手调度演示。",
         graph_like=langgraph_supervisor_hierarchy_agent,
     ),
     "interrupt-agent": Agent(
-        description="An agent the uses interrupts.", graph_like=interrupt_agent
+        description="支持中断与恢复交互的演示助手。", graph_like=interrupt_agent
     ),
     "knowledge-base-agent": Agent(
-        description="A retrieval-augmented generation agent using Amazon Bedrock Knowledge Base",
+        description="接入 Amazon Bedrock Knowledge Base 的知识库助手。",
         graph_like=kb_agent,
     ),
     "github-mcp-agent": Agent(
-        description="A GitHub agent with MCP tools for repository management and development workflows.",
+        description="带 GitHub MCP 工具的仓库协作助手。",
         graph_like=github_mcp_agent,
     ),
 }

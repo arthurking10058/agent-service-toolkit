@@ -11,6 +11,8 @@ def mock_agent_client(mock_env):
     """Fixture for creating a mock AgentClient with a clean environment."""
 
     mock_info = ServiceMetadata(
+        service_name="Agent Service Toolkit",
+        service_summary="测试用服务摘要",
         default_agent="test-agent",
         agents=[
             AgentInfo(key="test-agent", description="Test agent"),
@@ -18,6 +20,8 @@ def mock_agent_client(mock_env):
         ],
         default_model=OpenAIModelName.GPT_5_NANO,
         models=[OpenAIModelName.GPT_5_NANO, OpenAIModelName.GPT_5_MINI],
+        available_providers=["OpenAI-compatible"],
+        configuration_warnings=[],
     )
 
     with (

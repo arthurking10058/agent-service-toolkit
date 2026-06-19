@@ -22,6 +22,14 @@ class AgentInfo(BaseModel):
 class ServiceMetadata(BaseModel):
     """Metadata about the service including available agents and models."""
 
+    service_name: str = Field(
+        description="Human-readable service name.",
+        default="Agent Service Toolkit",
+    )
+    service_summary: str = Field(
+        description="Short summary of the current service variant.",
+        default="",
+    )
     agents: list[AgentInfo] = Field(
         description="List of available agents.",
     )
@@ -34,6 +42,14 @@ class ServiceMetadata(BaseModel):
     )
     default_model: AllModelEnum = Field(
         description="Default model used when none is specified.",
+    )
+    available_providers: list[str] = Field(
+        description="Available provider labels inferred from current configuration.",
+        default=[],
+    )
+    configuration_warnings: list[str] = Field(
+        description="Configuration warnings inferred from current runtime settings.",
+        default=[],
     )
 
 

@@ -28,6 +28,49 @@ APP_ICON = "🧰"
 USER_ID_COOKIE = "user_id"
 
 
+def format_model_label(model: str) -> str:
+    """把模型标识转换成更适合界面展示的文本。"""
+    if model == "openai-compatible":
+        return "openai-compatible（兼容模式）"
+    if model == "fake":
+        return "fake（演示模式）"
+    return model
+
+
+def render_service_overview(service_info, agent_description_map: dict[str, str]) -> None:
+    """在首页主区域展示当前服务摘要、默认配置和可用助手。"""
+    with st.container(border=True):
+        st.subheader("当前服务概览")
+        if service_info.service_summary:
+            st.write(service_info.service_summary)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.caption("默认助手")
+            st.write(f"`{service_info.default_agent}`")
+            desc = agent_description_map.get(service_info.default_agent)
+            if desc:
+                st.write(desc)
+        with col2:
+            st.caption("默认模型")
+            st.write(f"`{format_model_label(str(service_info.default_model))}`")
+
+        if service_info.available_providers:
+            st.caption("当前可用 Provider")
+            st.write(" | ".join(service_info.available_providers))
+
+        if service_info.configuration_warnings:
+            st.warning("\n".join(service_info.configuration_warnings))
+
+        with st.expander("查看可用助手与模型", expanded=False):
+            st.write("可用助手：")
+            for agent in service_info.agents:
+                st.write(f"- `{agent.key}`：{agent.description}")
+            st.write("可用模型：")
+            for item in service_info.models:
+                st.write(f"- `{format_model_label(str(item))}`")
+
+
 def dialog_or_inline(title: str):
     """优先使用 st.dialog；旧版 Streamlit 环境则退化为普通函数。"""
     if hasattr(st, "dialog"):
@@ -106,6 +149,8 @@ async def main() -> None:
             st.markdown("服务可能还在启动中，请稍等几秒后重试。")
             st.stop()
     agent_client: AgentClient = st.session_state.agent_client
+    service_info = agent_client.info
+    agent_description_map = {agent.key: agent.description for agent in service_info.agents}
 
     # 每个会话只初始化一次语音管理器
     if "voice_manager" not in st.session_state:
@@ -143,15 +188,22 @@ async def main() -> None:
             st.rerun()
 
         with st.popover(":material/settings: 设置", use_container_width=True):
-            model_idx = agent_client.info.models.index(agent_client.info.default_model)
-            model = st.selectbox("选择模型", options=agent_client.info.models, index=model_idx)
-            agent_list = [a.key for a in agent_client.info.agents]
-            agent_idx = agent_list.index(agent_client.info.default_agent)
+            model_idx = service_info.models.index(service_info.default_model)
+            model = st.selectbox(
+                "选择模型",
+                options=service_info.models,
+                index=model_idx,
+                format_func=format_model_label,
+            )
+            agent_list = [a.key for a in service_info.agents]
+            agent_idx = agent_list.index(service_info.default_agent)
             agent_client.agent = st.selectbox(
                 "选择助手",
                 options=agent_list,
                 index=agent_idx,
+                format_func=lambda key: key,
             )
+            st.caption(agent_description_map.get(agent_client.agent, ""))
             use_streaming = st.toggle("启用流式输出", value=True)
             # 关闭语音时顺手清掉缓存的语音结果
             enable_audio = st.toggle(
@@ -177,6 +229,21 @@ async def main() -> None:
 
         if st.button(":material/schema: 架构图", use_container_width=True):
             architecture_dialog()
+
+        with st.popover(":material/info: 服务信息", use_container_width=True):
+            if service_info.service_summary:
+                st.write(service_info.service_summary)
+            st.write(f"默认助手：`{service_info.default_agent}`")
+            st.write(f"默认模型：`{format_model_label(str(service_info.default_model))}`")
+            if service_info.available_providers:
+                st.write("当前可用 Provider：")
+                for provider in service_info.available_providers:
+                    st.write(f"- {provider}")
+            if service_info.configuration_warnings:
+                st.warning("\n".join(service_info.configuration_warnings))
+            st.write("可用助手：")
+            for agent in service_info.agents:
+                st.write(f"- `{agent.key}`：{agent.description}")
 
         with st.popover(":material/policy: 隐私说明", use_container_width=True):
             st.write(
@@ -208,6 +275,7 @@ async def main() -> None:
     messages: list[ChatMessage] = st.session_state.messages
 
     if len(messages) == 0:
+        render_service_overview(service_info, agent_description_map)
         match agent_client.agent:
             case "chatbot":
                 WELCOME = "你好！我是一个基础对话助手，你可以直接向我提问。"

@@ -45,9 +45,69 @@ warnings.filterwarnings("ignore", category=LangChainBetaWarning)
 logger = logging.getLogger(__name__)
 
 
+PROVIDER_LABELS = {
+    "OPENAI_API_KEY": "OpenAI",
+    "COMPATIBLE_MODEL": "OpenAI-compatible",
+    "DEEPSEEK_API_KEY": "DeepSeek",
+    "ANTHROPIC_API_KEY": "Anthropic",
+    "GOOGLE_API_KEY": "Google",
+    "GOOGLE_APPLICATION_CREDENTIALS": "Vertex AI",
+    "GROQ_API_KEY": "Groq",
+    "USE_AWS_BEDROCK": "AWS Bedrock",
+    "OLLAMA_MODEL": "Ollama",
+    "OPENROUTER_API_KEY": "OpenRouter",
+    "AZURE_OPENAI_API_KEY": "Azure OpenAI",
+}
+
+
 def custom_generate_unique_id(route: APIRoute) -> str:
     """Generate idiomatic operation IDs for OpenAPI client generation."""
     return route.name
+
+
+def _get_available_provider_labels() -> list[str]:
+    providers = []
+    for field_name, label in PROVIDER_LABELS.items():
+        value = getattr(settings, field_name, None)
+        if value:
+            providers.append(label)
+    if settings.USE_FAKE_MODEL:
+        providers.append("Fake Model")
+    return providers
+
+
+def _get_configuration_warnings() -> list[str]:
+    warnings_list: list[str] = []
+
+    if settings.DEFAULT_MODEL == "openai-compatible":
+        missing_fields = []
+        if not settings.COMPATIBLE_MODEL:
+            missing_fields.append("COMPATIBLE_MODEL")
+        if not settings.COMPATIBLE_API_KEY:
+            missing_fields.append("COMPATIBLE_API_KEY")
+        if not settings.COMPATIBLE_BASE_URL:
+            missing_fields.append("COMPATIBLE_BASE_URL")
+        if missing_fields:
+            warnings_list.append(
+                "当前默认模型是 openai-compatible，但以下配置缺失："
+                + ", ".join(missing_fields)
+            )
+
+    if settings.OPENAI_API_KEY and settings.COMPATIBLE_MODEL and settings.COMPATIBLE_BASE_URL:
+        warnings_list.append(
+            "当前同时启用了 OpenAI 与 OpenAI-compatible 配置，模型列表可能同时出现两类选项。"
+        )
+
+    if settings.USE_FAKE_MODEL:
+        warnings_list.append("当前启用了 fake model 演示模式，回答结果可能不来自真实模型。")
+
+    return warnings_list
+
+
+def _get_service_summary() -> str:
+    return (
+        "本服务提供一个可本地运行的智能体链路，包含 Web 界面、客户端、服务端和多个演示助手。"
+    )
 
 
 def verify_bearer(
@@ -109,10 +169,14 @@ async def info() -> ServiceMetadata:
     models = list(settings.AVAILABLE_MODELS)
     models.sort()
     return ServiceMetadata(
+        service_name="Agent Service Toolkit",
+        service_summary=_get_service_summary(),
         agents=get_all_agent_info(),
         models=models,
         default_agent=DEFAULT_AGENT,
         default_model=settings.DEFAULT_MODEL,
+        available_providers=_get_available_provider_labels(),
+        configuration_warnings=_get_configuration_warnings(),
     )
 
 
