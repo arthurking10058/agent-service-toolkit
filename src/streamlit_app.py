@@ -100,10 +100,10 @@ async def main() -> None:
             port = os.getenv("PORT", 8080)
             agent_url = f"http://{host}:{port}"
         try:
-            with st.spinner("正在连接 Agent service..."):
+            with st.spinner("正在连接服务端..."):
                 st.session_state.agent_client = AgentClient(base_url=agent_url)
         except AgentClientError as e:
-            st.error(f"连接 Agent service 失败：{agent_url}\n\n{e}")
+            st.error(f"连接服务端失败：{agent_url}\n\n{e}")
             st.markdown("服务可能还在启动中，请稍等几秒后重试。")
             st.stop()
     agent_client: AgentClient = st.session_state.agent_client
@@ -132,7 +132,7 @@ async def main() -> None:
         st.header(f"{APP_ICON} {APP_TITLE}")
 
         ""
-        "这是一个基于 LangGraph、FastAPI 和 Streamlit 的完整 Agent service 工具包。"
+        "这是一个基于 LangGraph、FastAPI 和 Streamlit 的可运行智能体项目骨架。"
         ""
 
         if st.button(":material/chat: 新对话", use_container_width=True):
@@ -145,11 +145,11 @@ async def main() -> None:
 
         with st.popover(":material/settings: 设置", use_container_width=True):
             model_idx = agent_client.info.models.index(agent_client.info.default_model)
-            model = st.selectbox("选择要使用的 LLM", options=agent_client.info.models, index=model_idx)
+            model = st.selectbox("选择模型", options=agent_client.info.models, index=model_idx)
             agent_list = [a.key for a in agent_client.info.agents]
             agent_idx = agent_list.index(agent_client.info.default_agent)
             agent_client.agent = st.selectbox(
-                "选择要使用的 Agent",
+                "选择助手",
                 options=agent_list,
                 index=agent_idx,
             )
@@ -169,7 +169,7 @@ async def main() -> None:
             )
 
             # Display user ID (for debugging or user information)
-            st.text_input("用户 ID（只读）", value=user_id, disabled=True)
+            st.text_input("用户标识（只读）", value=user_id, disabled=True)
 
         @dialog_or_inline("架构")
         def architecture_dialog() -> None:
@@ -181,7 +181,7 @@ async def main() -> None:
 
         with st.popover(":material/policy: 隐私说明", use_container_width=True):
             st.write(
-                "本应用中的提示词、回答和反馈会以匿名方式记录并保存到 LangSmith，仅用于产品评估和改进。"
+                "本应用中的提示词、回答和反馈可能会以匿名方式记录，用于调试、评估和后续改进。"
             )
 
         @dialog_or_inline("分享 / 恢复对话")
@@ -197,13 +197,13 @@ async def main() -> None:
             chat_url = (
                 f"{st_base_url}?thread_id={st.session_state.thread_id}&{USER_ID_COOKIE}={user_id}"
             )
-            st.markdown(f"**对话链接：**\n```text\n{chat_url}\n```")
-            st.info("复制上面的链接即可分享或再次打开这个对话")
+            st.markdown(f"**会话分享链接：**\n```text\n{chat_url}\n```")
+            st.info("复制这个链接后，可以分享或再次打开当前会话。")
 
         if st.button(":material/upload: 分享 / 恢复对话", use_container_width=True):
             share_chat_dialog()
 
-        st.caption("当前界面基于当前仓库配置运行。")
+        st.caption("当前界面正在使用仓库内的本地配置运行。")
 
     # Draw existing messages
     messages: list[ChatMessage] = st.session_state.messages
@@ -211,16 +211,16 @@ async def main() -> None:
     if len(messages) == 0:
         match agent_client.agent:
             case "chatbot":
-                WELCOME = "你好！我是一个简单问答 Agent，你可以直接向我提问。"
+                WELCOME = "你好！我是一个基础对话助手，你可以直接向我提问。"
             case "interrupt-agent":
-                WELCOME = "你好！我是一个可中断交互 Agent。告诉我你的生日，我会尝试继续完成这次演示。"
+                WELCOME = "你好！我是一个可中断交互演示助手。告诉我你的生日，我会继续完成这次演示。"
             case "research-assistant":
-                WELCOME = "你好！我是一个带有网页检索和计算能力的研究助手 Agent。你可以直接向我提问。"
+                WELCOME = "你好！我是一个带有网页检索和计算能力的研究助手，你可以直接向我提问。"
             case "rag-assistant":
-                WELCOME = """你好！我是一个接入示例知识库的 RAG 助手，可以基于内置资料回答问题。
-                你可以把它当作一个文档问答演示入口，直接向我提问。"""
+                WELCOME = """你好！我是一个接入示例知识库的文档问答助手，可以基于内置资料回答问题。
+                你可以把这里当作知识库检索与问答的演示入口，直接向我提问。"""
             case _:
-                WELCOME = "你好！我是当前项目里的默认 Agent，你可以直接向我提问。"
+                WELCOME = "你好！我是当前项目里的默认助手，你可以直接向我提问。"
 
         with st.chat_message("ai"):
             st.write(WELCOME)
@@ -393,9 +393,9 @@ async def draw_messages(
                         for tool_call in msg.tool_calls:
                             # Use different labels for transfer vs regular tool calls
                             if "transfer_to" in tool_call["name"]:
-                                label = f"""💼 Sub Agent：{tool_call["name"]}"""
+                                label = f"""💼 子助手：{tool_call["name"]}"""
                             else:
-                                label = f"""🛠️ Tool Call：{tool_call["name"]}"""
+                                label = f"""🛠️ 工具调用：{tool_call["name"]}"""
 
                             status = st.status(
                                 label,
@@ -563,7 +563,7 @@ async def handle_sub_agent_msgs(messages_agen, status, is_new):
                     if "transfer_to" in tc["name"]:
                         # Create a nested status container for the sub-agent
                         nested_status = status.status(
-                            f"""💼 Sub Agent：{tc["name"]}""",
+                            f"""💼 子助手：{tc["name"]}""",
                             state="running" if is_new else "complete",
                             expanded=True,
                         )
@@ -573,7 +573,7 @@ async def handle_sub_agent_msgs(messages_agen, status, is_new):
                     else:
                         # Regular tool call - create popover
                         popover = status.popover(f"{tc['name']}", icon="🛠️")
-                        popover.write(f"**Tool：** {tc['name']}")
+                        popover.write(f"**工具：** {tc['name']}")
                         popover.write("**输入：**")
                         popover.write(tc["args"])
                         # Store the popover reference using the tool call ID

@@ -13,7 +13,7 @@ def test_app_simple_non_streaming(mock_agent_client):
     """Test the full app - happy path"""
     at = AppTest.from_file("../../src/streamlit_app.py").run()
 
-    WELCOME_START = "你好！我是当前项目里的默认 Agent"
+    WELCOME_START = "你好！我是当前项目里的默认助手"
     PROMPT = "Know any jokes?"
     RESPONSE = "Sure! Here's a joke:"
 
@@ -134,7 +134,7 @@ async def test_app_streaming(mock_agent_client):
     response = at.chat_message[1]
     tool_status = response.status[0]
     assert response.avatar == "assistant"
-    assert tool_status.label == "🛠️ Tool Call：calculator"
+    assert tool_status.label == "🛠️ 工具调用：calculator"
     assert tool_status.icon == ":material/check:"
     assert tool_status.markdown[0].value == "输入："
     assert tool_status.json[0].value == '{"expression": "6 * 7"}'
@@ -364,7 +364,7 @@ async def test_app_streaming_single_sub_agent(mock_agent_client, multi_agent_mes
     )
     assert popover_1.proto.popover.label == "do_work_1"
     assert popover_1.proto.popover.icon == "🛠️"
-    assert popover_1.markdown[0].value == "**Tool：** do_work_1"
+    assert popover_1.markdown[0].value == "**工具：** do_work_1"
     assert popover_1.markdown[1].value == "**输入：**"
     assert '"my-arg": "value"' in popover_1.json[0].value
     assert popover_1.markdown[2].value == "**输出：**"
@@ -435,7 +435,7 @@ async def test_app_streaming_sequential_sub_agents(mock_agent_client, multi_agen
     assert popover_a.type == "popover"
     assert popover_a.proto.popover.label == "do_work_1"
     assert popover_a.proto.popover.icon == "🛠️"
-    assert popover_a.markdown[0].value == "**Tool：** do_work_1"
+    assert popover_a.markdown[0].value == "**工具：** do_work_1"
     assert popover_a.markdown[1].value == "**输入：**"
     assert popover_a.json[0].value == '{"my-arg": "value"}'
     assert popover_a.markdown[2].value == "**输出：**"
@@ -456,7 +456,7 @@ async def test_app_streaming_sequential_sub_agents(mock_agent_client, multi_agen
     assert popover_c.type == "popover"
     assert popover_c.proto.popover.label == "do_work_2"
     assert popover_c.proto.popover.icon == "🛠️"
-    assert popover_c.markdown[0].value == "**Tool：** do_work_2"
+    assert popover_c.markdown[0].value == "**工具：** do_work_2"
     assert popover_c.markdown[1].value == "**输入：**"
     assert popover_c.json[0].value == '{"my-arg-2": "value"}'
     assert popover_c.markdown[2].value == "**输出：**"
@@ -525,7 +525,7 @@ async def test_app_streaming_nested_sub_agents(mock_agent_client, multi_agent_me
     assert popover_a.type == "popover"
     assert popover_a.proto.popover.label == "do_work_1"
     assert popover_a.proto.popover.icon == "🛠️"
-    assert popover_a.markdown[0].value == "**Tool：** do_work_1"
+    assert popover_a.markdown[0].value == "**工具：** do_work_1"
     assert popover_a.markdown[1].value == "**输入：**"
     assert popover_a.json[0].value == '{"my-arg": "value"}'
     assert popover_a.markdown[2].value == "**输出：**"
@@ -547,7 +547,7 @@ async def test_app_streaming_nested_sub_agents(mock_agent_client, multi_agent_me
     assert popover_b.type == "popover"
     assert popover_b.proto.popover.label == "do_work_2"
     assert popover_b.proto.popover.icon == "🛠️"
-    assert popover_b.markdown[0].value == "**Tool：** do_work_2"
+    assert popover_b.markdown[0].value == "**工具：** do_work_2"
     assert popover_b.markdown[1].value == "**输入：**"
     assert popover_b.json[0].value == '{"my-arg-2": "value"}'
     assert popover_b.markdown[2].value == "**输出：**"
