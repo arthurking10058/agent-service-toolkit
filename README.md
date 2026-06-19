@@ -1,20 +1,37 @@
 # 🧰 Agent Service Toolkit
 
-这是一个基于 LangGraph、FastAPI 和 Streamlit 的 Agent 项目版本。
+一个基于 LangGraph、FastAPI 和 Streamlit 的完整 Agent 应用骨架，包含服务端、客户端和可直接交互的 Web 界面。
 
-当前版本的重点不是继续复述上游仓库，而是把一个已经跑通、已经验证过、已经开始中文化的完整 Agent 工具链，整理成一个可继续开发、可准备上传、边界清晰的项目版本。
+这个仓库适合用来继续做两类事情：
+
+- 作为本地可运行的 Agent 工程继续开发
+- 作为一个完整示例，学习 `UI -> Client -> Service -> Agent` 的整体链路
+
+当前已经完成并验证：
+
+- FastAPI 服务可启动
+- Streamlit 页面可打开
+- `UI -> Client -> Service -> Agent` 链路已跑通
+- fake model 演示模式可用
+- 阿里云百炼 `OpenAI-compatible` 接法可用
+- 页面主要可见文案已完成第一轮中文化
+
+当前推荐本地运行基线：
+
+- FastAPI：`8081`
+- Streamlit：`8501`
+- 默认模型：`openai-compatible`
 
 ## 项目简介
 
-这个项目目前包含一条完整的本地交互链路：
+项目当前包含一条完整的本地交互链路：
 
 - `src/service/service.py` 提供 FastAPI 服务入口
 - `src/client/client.py` 负责和服务通信
 - `src/streamlit_app.py` 提供聊天式交互界面
 - `src/agents/` 提供多个 Agent 实现
 - `src/core/settings.py` 管理模型、环境变量和运行模式
-
-当前这一版已经完成了基础运行验证，并在此基础上开始做中文化、配置收敛和项目边界整理。
+当前这一版已经完成基础运行验证，并在此基础上继续做中文化、配置收敛和项目整理。
 
 ## 当前版本定位
 
@@ -25,23 +42,6 @@
 - 使用已经在本地跑通的 OpenAI-compatible 模型接法
 - 排除本地记录、日志、缓存、数据库等非项目产物
 - 逐步把 README、配置说明和界面表达改造成自己的版本
-
-## 当前已验证状态
-
-下面这些已经确认通过：
-
-- FastAPI 服务可启动
-- Streamlit 页面可打开
-- `UI -> Client -> Service -> Agent` 链路已跑通
-- fake model 演示模式可用
-- 阿里云百炼 `OpenAI-compatible` 接法可用
-- 页面主要可见文案已完成第一轮中文化
-
-当前本地运行基线：
-
-- FastAPI 端口：`8081`
-- Streamlit 端口：`8501`
-- 推荐默认模型：`openai-compatible`
 
 ## 目录说明
 
