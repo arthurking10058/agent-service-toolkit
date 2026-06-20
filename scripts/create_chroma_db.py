@@ -2,23 +2,54 @@ import os
 import shutil
 
 from dotenv import load_dotenv
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_community.document_loaders import Docx2txtLoader, PyPDFLoader
 from langchain_openai import OpenAIEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 # Load environment variables from the .env file
 load_dotenv()
 
+DEFAULT_COMPATIBLE_EMBEDDING_MODEL = "text-embedding-v3-small"
+
+
+def create_embedding_model() -> OpenAIEmbeddings:
+    """优先使用 OpenAI-compatible embeddings，其次才回退到 OpenAI embeddings。"""
+    compatible_api_key = os.getenv("COMPATIBLE_API_KEY")
+    compatible_base_url = os.getenv("COMPATIBLE_BASE_URL")
+    compatible_embedding_model = os.getenv("COMPATIBLE_EMBEDDING_MODEL")
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+
+    if compatible_api_key and compatible_base_url:
+        return OpenAIEmbeddings(
+            model=compatible_embedding_model or DEFAULT_COMPATIBLE_EMBEDDING_MODEL,
+            openai_api_base=compatible_base_url,
+            openai_api_key=compatible_api_key,
+            check_embedding_ctx_length=False,
+            tiktoken_enabled=False,
+        )
+
+    if openai_api_key:
+        return OpenAIEmbeddings(
+            api_key=openai_api_key,
+            check_embedding_ctx_length=False,
+        )
+
+    raise RuntimeError(
+        "无法初始化 embedding 模型。请优先配置 COMPATIBLE_API_KEY、"
+        "COMPATIBLE_BASE_URL 和可选的 COMPATIBLE_EMBEDDING_MODEL；"
+        "如果你确实要走 OpenAI，再配置 OPENAI_API_KEY。"
+    )
+
 
 def create_chroma_db(
     folder_path: str,
-    db_name: str = "./chroma_db",
+    db_name: str = "./chroma_db_small_chunks",
     delete_chroma_db: bool = True,
-    chunk_size: int = 2000,
-    overlap: int = 500,
+    chunk_size: int = 500,
+    overlap: int = 100,
 ):
-    embeddings = OpenAIEmbeddings(api_key=os.environ["OPENAI_API_KEY"])
+    embeddings = create_embedding_model()
 
     # Initialize Chroma vector store
     if delete_chroma_db and os.path.exists(db_name):

@@ -99,6 +99,7 @@ class Settings(BaseSettings):
 
     # Set openai compatible api, mainly used for proof of concept
     COMPATIBLE_MODEL: str | None = None
+    COMPATIBLE_EMBEDDING_MODEL: str | None = None
     COMPATIBLE_API_KEY: SecretStr | None = None
     COMPATIBLE_BASE_URL: str | None = None
 
@@ -125,6 +126,9 @@ class Settings(BaseSettings):
         DatabaseType.SQLITE
     )  # Options: DatabaseType.SQLITE or DatabaseType.POSTGRES
     SQLITE_DB_PATH: str = "checkpoints.db"
+    RAG_SEARCH_K: int = Field(default=5, ge=1)
+    RAG_DISTANCE_THRESHOLD: float = Field(default=1.1, ge=0.0)
+    RAG_MAX_CONTEXT_CHUNKS: int = Field(default=3, ge=1)
 
     # PostgreSQL Configuration
     POSTGRES_USER: str | None = None
