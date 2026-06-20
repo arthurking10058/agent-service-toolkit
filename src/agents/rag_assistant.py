@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime
 from typing import Literal
 
@@ -42,16 +43,18 @@ instructions = f"""
     Response rules:
     - If hit_count is 0, clearly say that the current example knowledge base did not return relevant content.
     - If content is found, answer the user's question directly in a concise, helpful and friendly tone.
-    - Keep the answer short by default. Prefer 3 to 5 bullet points or a short paragraph.
+    - Keep the answer short by default. Prefer a short paragraph or 2 to 4 concise bullet points.
     - Prefer summarizing the retrieved policy first, instead of explaining what you theoretically would do.
+    - Do not mention retrieval steps, hit_count or internal tool behavior in the main answer body.
+    - Avoid formulaic openings such as "根据员工手册" or "根据检索结果" unless they are necessary for clarity.
     - Do not add a generic closing invitation such as asking the user to keep asking more questions.
     - Do not repeat source disclaimers in the main answer body if the system adds a source note later.
     - Do not invent policies, benefits or citations that are not present in the retrieved context.
     """
 
 NO_HIT_RESPONSE_TEMPLATE = (
-    "当前示例员工手册知识库没有检索到与这个问题直接相关的内容。"
-    "你可以换一种问法，或直接询问员工手册、福利、远程办公、休假政策等主题。"
+    "当前示例知识库里没有找到和这个问题直接相关的内容。"
+    "你可以换个问法，或继续询问员工手册里的福利、远程办公、休假政策等主题。"
 )
 RAG_RESPONSE_METADATA_KEY = "knowledge_base"
 
@@ -102,10 +105,19 @@ def extract_knowledge_base_result(state: AgentState) -> dict | None:
     return None
 
 
-def append_rag_observability_note(content: str, hit_count: int, source: str) -> str:
-    """给回答补一条更自然的轻量来源说明。"""
-    note = f"以上内容基于示例知识库 {source}，参考了 {hit_count} 个相关片段。"
+def polish_rag_answer_content(content: str) -> str:
+    """清理常见的模板化开头、重复来源说明和收尾语。"""
     cleaned_content = content.strip()
+
+    opening_patterns = [
+        r"^(?:根据|基于)(?:当前)?(?:示例)?(?:AcmeTech)?(?:员工手册|知识库|检索到的内容)[：:，,\s]*",
+        r"^根据检索结果[：:，,\s]*",
+        r"^从(?:员工)?手册(?:内容)?来看[：:，,\s]*",
+        r"^结合(?:检索结果|手册内容)[：:，,\s]*",
+    ]
+    for pattern in opening_patterns:
+        cleaned_content = re.sub(pattern, "", cleaned_content, count=1)
+
     cleaned_content = cleaned_content.replace(
         "如果您对手册中的其他内容还有疑问，欢迎随时向我提问！", ""
     ).replace(
@@ -123,10 +135,21 @@ def append_rag_observability_note(content: str, hit_count: int, source: str) -> 
     ).replace(
         "以上回答基于 AcmeTech 员工手册示例知识库。", ""
     ).replace(
+        "以上内容基于示例知识库《AcmeTech_Employee_Handbook.pdf》中的相关内容。", ""
+    ).replace(
         "以上信息均基于AcmeTech员工手册（Employee Handbook）中的相关规定。", ""
     ).replace(
         "以上信息基于AcmeTech员工手册（Employee Handbook）中的相关规定。", ""
-    ).strip()
+    )
+
+    cleaned_content = re.sub(r"\n{3,}", "\n\n", cleaned_content).strip()
+    return cleaned_content
+
+
+def append_rag_observability_note(content: str, hit_count: int, source: str) -> str:
+    """给回答补一条更自然的轻量来源说明。"""
+    note = f"以上内容基于示例知识库《{source}》中的相关内容。"
+    cleaned_content = polish_rag_answer_content(content)
     if not cleaned_content:
         return note
     if note in cleaned_content:

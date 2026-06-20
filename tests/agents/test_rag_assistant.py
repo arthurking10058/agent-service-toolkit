@@ -12,6 +12,7 @@ from agents.rag_assistant import (
     acall_model,
     build_rag_response_metadata,
     extract_knowledge_base_result,
+    polish_rag_answer_content,
     retrieve_knowledge_base,
     wrap_model,
 )
@@ -58,14 +59,15 @@ def test_append_rag_observability_note():
     content = "根据员工手册，年假需要提前申请。"
     output = append_rag_observability_note(content, 3, "AcmeTech_Employee_Handbook.pdf")
 
-    assert "参考了 3 个相关片段" in output
+    assert "《AcmeTech_Employee_Handbook.pdf》" in output
     assert "AcmeTech_Employee_Handbook.pdf" in output
     assert "以上内容基于示例知识库" in output
-    assert content in output
+    assert "年假需要提前申请。" in output
+    assert "根据员工手册" not in output
 
 
 def test_append_rag_observability_note_does_not_duplicate_same_note():
-    note = "以上内容基于示例知识库 AcmeTech_Employee_Handbook.pdf，参考了 3 个相关片段。"
+    note = "以上内容基于示例知识库《AcmeTech_Employee_Handbook.pdf》中的相关内容。"
     output = append_rag_observability_note(note, 3, "AcmeTech_Employee_Handbook.pdf")
 
     assert output == note
@@ -78,6 +80,25 @@ def test_append_rag_observability_note_removes_generic_closing():
 
     assert "如果还有其他问题" not in output
     assert "公司支持混合办公" in output
+
+
+def test_polish_rag_answer_content_removes_formulaic_opening():
+    content = "根据员工手册，公司支持混合办公，每周最多可远程 3 天。"
+
+    output = polish_rag_answer_content(content)
+
+    assert output == "公司支持混合办公，每周最多可远程 3 天。"
+
+
+def test_polish_rag_answer_content_removes_redundant_source_text_and_extra_spacing():
+    content = (
+        "根据检索结果，员工福利主要包括医疗保险和培训支持。\n\n\n"
+        "以上信息基于AcmeTech员工手册的知识库。"
+    )
+
+    output = polish_rag_answer_content(content)
+
+    assert output == "员工福利主要包括医疗保险和培训支持。"
 
 
 def test_build_rag_response_metadata():
@@ -95,8 +116,8 @@ def test_build_rag_response_metadata():
 
 
 def test_no_hit_template_is_stable():
-    assert "没有检索到" in NO_HIT_RESPONSE_TEMPLATE
-    assert "员工手册" in NO_HIT_RESPONSE_TEMPLATE
+    assert "没有找到" in NO_HIT_RESPONSE_TEMPLATE
+    assert "福利" in NO_HIT_RESPONSE_TEMPLATE
 
 
 def test_filter_scored_documents_applies_distance_threshold():

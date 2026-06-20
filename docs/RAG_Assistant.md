@@ -103,6 +103,24 @@ Questions that should normally not hit:
 2. `公司今年招聘多少个实习生？`
 3. `今年年终奖具体公式是什么？`
 
+## Fast Demo Flow
+
+If you want to quickly verify the current repository demo path:
+
+1. Start the FastAPI service.
+2. Start the Streamlit app.
+3. In the UI, explicitly select:
+   - assistant: `rag-assistant`
+   - model: `openai-compatible`
+4. Ask one hit question and one no-hit question from the list above.
+
+The current demo should behave like this:
+
+- hit questions return a concise answer grounded in the handbook
+- the UI shows a `知识库命中` badge for hit answers
+- no-hit questions clearly say the example knowledge base did not return relevant content
+- the UI shows a `知识库未命中` badge for no-hit answers
+
 ## Notes For This Repository Version
 
 This repository currently favors a small, inspectable RAG demo over a more complex architecture.
