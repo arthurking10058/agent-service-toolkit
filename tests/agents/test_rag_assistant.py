@@ -58,17 +58,26 @@ def test_append_rag_observability_note():
     content = "根据员工手册，年假需要提前申请。"
     output = append_rag_observability_note(content, 3, "AcmeTech_Employee_Handbook.pdf")
 
-    assert "共参考了 3 个相关片段" in output
+    assert "参考了 3 个相关片段" in output
     assert "AcmeTech_Employee_Handbook.pdf" in output
-    assert "以上回答基于示例知识库" in output
+    assert "以上内容基于示例知识库" in output
     assert content in output
 
 
 def test_append_rag_observability_note_does_not_duplicate_same_note():
-    note = "以上回答基于示例知识库 AcmeTech_Employee_Handbook.pdf，共参考了 3 个相关片段。"
+    note = "以上内容基于示例知识库 AcmeTech_Employee_Handbook.pdf，参考了 3 个相关片段。"
     output = append_rag_observability_note(note, 3, "AcmeTech_Employee_Handbook.pdf")
 
     assert output == note
+
+
+def test_append_rag_observability_note_removes_generic_closing():
+    content = "公司支持混合办公，每周最多可远程 3 天。\n\n如果还有其他问题，欢迎继续提问。"
+
+    output = append_rag_observability_note(content, 3, "AcmeTech_Employee_Handbook.pdf")
+
+    assert "如果还有其他问题" not in output
+    assert "公司支持混合办公" in output
 
 
 def test_build_rag_response_metadata():

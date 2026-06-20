@@ -42,8 +42,10 @@ instructions = f"""
     Response rules:
     - If hit_count is 0, clearly say that the current example knowledge base did not return relevant content.
     - If content is found, answer the user's question directly in a concise, helpful and friendly tone.
+    - Keep the answer short by default. Prefer 3 to 5 bullet points or a short paragraph.
     - Prefer summarizing the retrieved policy first, instead of explaining what you theoretically would do.
-    - Mention that the answer is based on the Employee Handbook example knowledge base when appropriate.
+    - Do not add a generic closing invitation such as asking the user to keep asking more questions.
+    - Do not repeat source disclaimers in the main answer body if the system adds a source note later.
     - Do not invent policies, benefits or citations that are not present in the retrieved context.
     """
 
@@ -102,18 +104,28 @@ def extract_knowledge_base_result(state: AgentState) -> dict | None:
 
 def append_rag_observability_note(content: str, hit_count: int, source: str) -> str:
     """给回答补一条更自然的轻量来源说明。"""
-    note = f"以上回答基于示例知识库 {source}，共参考了 {hit_count} 个相关片段。"
+    note = f"以上内容基于示例知识库 {source}，参考了 {hit_count} 个相关片段。"
     cleaned_content = content.strip()
     cleaned_content = cleaned_content.replace(
         "如果您对手册中的其他内容还有疑问，欢迎随时向我提问！", ""
     ).replace(
         "如果您还有其他问题，欢迎随时提问！", ""
     ).replace(
+        "如有进一步问题，欢迎继续提问。", ""
+    ).replace(
+        "如果还有其他问题，欢迎继续提问。", ""
+    ).replace(
+        "以上信息基于AcmeTech员工手册的知识库。", ""
+    ).replace(
+        "以上信息均基于AcmeTech员工手册的知识库。", ""
+    ).replace(
         "以上回答基于 AcmeTech 员工手册示例知识库（参考了 1 个相关片段）。", ""
     ).replace(
         "以上回答基于 AcmeTech 员工手册示例知识库。", ""
     ).replace(
         "以上信息均基于AcmeTech员工手册（Employee Handbook）中的相关规定。", ""
+    ).replace(
+        "以上信息基于AcmeTech员工手册（Employee Handbook）中的相关规定。", ""
     ).strip()
     if not cleaned_content:
         return note
