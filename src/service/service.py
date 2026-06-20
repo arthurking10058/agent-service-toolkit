@@ -23,6 +23,7 @@ from langsmith import Client as LangsmithClient
 from langsmith import uuid7
 
 from agents import DEFAULT_AGENT, AgentGraph, get_agent, get_all_agent_info, load_agent
+from agents.tools import get_knowledge_base_status
 from core import settings
 from memory import initialize_database, initialize_store
 from schema import (
@@ -106,7 +107,7 @@ def _get_configuration_warnings() -> list[str]:
 
 def _get_service_summary() -> str:
     return (
-        "本服务提供一个可本地运行的智能体链路，包含 Web 界面、客户端、服务端和多个演示助手。"
+        "本服务提供一个可本地运行的智能体链路，包含 Web 界面、客户端、服务端，以及可继续学习 RAG 的示例助手。"
     )
 
 
@@ -177,6 +178,7 @@ async def info() -> ServiceMetadata:
         default_model=settings.DEFAULT_MODEL,
         available_providers=_get_available_provider_labels(),
         configuration_warnings=_get_configuration_warnings(),
+        knowledge_base_status=get_knowledge_base_status(),
     )
 
 

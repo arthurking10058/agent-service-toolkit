@@ -51,6 +51,10 @@ class ServiceMetadata(BaseModel):
         description="Configuration warnings inferred from current runtime settings.",
         default=[],
     )
+    knowledge_base_status: str = Field(
+        description="Short status text for the current RAG knowledge base setup.",
+        default="",
+    )
 
 
 class UserInput(BaseModel):

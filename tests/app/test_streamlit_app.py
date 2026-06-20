@@ -34,6 +34,36 @@ def test_app_simple_non_streaming(mock_agent_client):
     assert not at.exception
 
 
+def test_app_renders_knowledge_base_badge(mock_agent_client):
+    at = AppTest.from_file("../../src/streamlit_app.py").run()
+
+    prompt = "员工手册里有没有提到远程办公政策？"
+    response = "公司支持混合办公，每周最多可远程 3 天。"
+
+    mock_agent_client.ainvoke = AsyncMock(
+        return_value=ChatMessage(
+            type="ai",
+            content=response,
+            response_metadata={
+                "knowledge_base": {
+                    "hit": True,
+                    "hit_count": 2,
+                    "source": "AcmeTech_Employee_Handbook.pdf",
+                }
+            },
+        ),
+    )
+
+    at.sidebar.toggle[0].set_value(False)
+    at.chat_input[0].set_value(prompt).run()
+
+    assert at.chat_message[1].markdown[0].value == response
+    assert at.chat_message[1].caption[0].value == (
+        "知识库命中：AcmeTech_Employee_Handbook.pdf，命中 2 个片段"
+    )
+    assert not at.exception
+
+
 def test_app_settings(mock_agent_client):
     """Test the full app - happy path"""
     at = AppTest.from_file("../../src/streamlit_app.py")

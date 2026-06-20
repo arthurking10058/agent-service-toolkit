@@ -2,7 +2,7 @@
 
 The GitHub MCP Agent is a specialized agent that uses GitHub MCP (Model Context Protocol) tools for repository management and development workflows. It's built using LangGraph's `create_react_agent` for a clean, ReAct (Reasoning and Acting) pattern implementation.
 
-**This agent is designed as a demo for agents that use MCP (Model Context Protocol) servers and tools.**
+**This agent can be used as a reference example for integrating MCP (Model Context Protocol) servers and tools into an agent workflow.**
 
 ## Features
 [The Github MCP server](https://github.com/github/github-mcp-server) provides a variety of tools, if a PAT is configured.

@@ -22,6 +22,7 @@ def mock_agent_client(mock_env):
         models=[OpenAIModelName.GPT_5_NANO, OpenAIModelName.GPT_5_MINI],
         available_providers=["OpenAI-compatible"],
         configuration_warnings=[],
+        knowledge_base_status="已接入示例知识库：AcmeTech_Employee_Handbook.pdf",
     )
 
     with (

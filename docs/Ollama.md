@@ -1,8 +1,8 @@
 # Using Ollama
 
-⚠️ _**Note:** Ollama support in agent-service-toolkit is experimental and may not work as expected. The instructions below have been tested using Docker Desktop on a MacBook Pro. Please file an issue for any challenges you encounter._
+⚠️ _**Note:** Ollama support in this project is still experimental. The exact behavior may vary across local environments and Docker setups._
 
-You can also use [Ollama](https://ollama.com) to run the LLM powering the agent service.
+You can also use [Ollama](https://ollama.com) to run the model used by the agent service.
 
 1. Install Ollama using instructions from https://github.com/ollama/ollama
 1. Install any model you want to use, e.g. `ollama pull llama3.2` and set the `OLLAMA_MODEL` environment variable to the model you want to use, e.g. `OLLAMA_MODEL=llama3.2`

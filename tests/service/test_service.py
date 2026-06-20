@@ -377,3 +377,4 @@ def test_info(test_client, mock_settings) -> None:
     assert output.models == [OpenAIModelName.GPT_5_MINI, OpenAIModelName.GPT_5_NANO]
     assert output.service_name == "Agent Service Toolkit"
     assert output.service_summary != ""
+    assert output.knowledge_base_status != ""

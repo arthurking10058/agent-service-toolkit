@@ -37,6 +37,22 @@ def format_model_label(model: str) -> str:
     return model
 
 
+def get_knowledge_base_badge(message: ChatMessage) -> str | None:
+    """从消息元数据里提取轻量知识库命中说明。"""
+    metadata = message.response_metadata or {}
+    knowledge_base = metadata.get("knowledge_base")
+    if not isinstance(knowledge_base, dict):
+        return None
+
+    hit = bool(knowledge_base.get("hit"))
+    hit_count = knowledge_base.get("hit_count", 0)
+    source = knowledge_base.get("source", "示例知识库")
+
+    if hit:
+        return f"知识库命中：{source}，命中 {hit_count} 个片段"
+    return f"知识库未命中：{source}"
+
+
 def render_service_overview(service_info, agent_description_map: dict[str, str]) -> None:
     """在首页主区域展示当前服务摘要、默认配置和可用助手。"""
     with st.container(border=True):
@@ -58,6 +74,10 @@ def render_service_overview(service_info, agent_description_map: dict[str, str])
         if service_info.available_providers:
             st.caption("当前可用 Provider")
             st.write(" | ".join(service_info.available_providers))
+
+        if service_info.knowledge_base_status:
+            st.caption("知识库状态")
+            st.write(service_info.knowledge_base_status)
 
         if service_info.configuration_warnings:
             st.warning("\n".join(service_info.configuration_warnings))
@@ -239,6 +259,8 @@ async def main() -> None:
                 st.write("当前可用 Provider：")
                 for provider in service_info.available_providers:
                     st.write(f"- {provider}")
+            if service_info.knowledge_base_status:
+                st.write(f"知识库状态：{service_info.knowledge_base_status}")
             if service_info.configuration_warnings:
                 st.warning("\n".join(service_info.configuration_warnings))
             st.write("可用助手：")
@@ -439,6 +461,10 @@ async def draw_messages(
                             streaming_placeholder = None
                         else:
                             st.write(msg.content)
+
+                    knowledge_base_badge = get_knowledge_base_badge(msg)
+                    if knowledge_base_badge:
+                        st.caption(knowledge_base_badge)
 
                     if msg.tool_calls:
                         # 为每个工具调用创建单独状态块，并用 ID 建立映射
