@@ -56,7 +56,26 @@ NO_HIT_RESPONSE_TEMPLATE = (
     "当前示例知识库里没有找到和这个问题直接相关的内容。"
     "你可以换个问法，或继续询问员工手册里的福利、远程办公、休假政策等主题。"
 )
+RAG_ERROR_RESPONSE_TEMPLATE = (
+    "这次知识库检索出了点问题，暂时没法可靠地基于示例手册回答。"
+    "你可以稍后重试；如果反复出现，建议检查向量库、embedding 配置或 provider 连通性。"
+)
 RAG_RESPONSE_METADATA_KEY = "knowledge_base"
+
+
+def build_knowledge_base_result(
+    *,
+    hit_count: int,
+    source: str,
+    context: str,
+    status: str = "hit",
+) -> dict[str, str | int]:
+    return {
+        "hit_count": hit_count,
+        "source": source,
+        "context": context,
+        "status": status,
+    }
 
 
 def wrap_model(model: BaseChatModel) -> RunnableSerializable[AgentState, AIMessage]:
@@ -110,10 +129,12 @@ def polish_rag_answer_content(content: str) -> str:
     cleaned_content = content.strip()
 
     opening_patterns = [
-        r"^(?:根据|基于)(?:当前)?(?:示例)?(?:AcmeTech)?(?:员工手册|知识库|检索到的内容)[：:，,\s]*",
+        r"^(?:根据|基于)(?:当前)?(?:示例)?(?:AcmeTech)?(?:员工)?手册(?:内容)?[：:，,\s]*",
         r"^根据检索结果[：:，,\s]*",
+        r"^根据知识库(?:内容)?[：:，,\s]*",
         r"^从(?:员工)?手册(?:内容)?来看[：:，,\s]*",
         r"^结合(?:检索结果|手册内容)[：:，,\s]*",
+        r"^参考(?:员工)?手册(?:内容)?[：:，,\s]*",
     ]
     for pattern in opening_patterns:
         cleaned_content = re.sub(pattern, "", cleaned_content, count=1)
@@ -142,19 +163,40 @@ def polish_rag_answer_content(content: str) -> str:
         "以上信息基于AcmeTech员工手册（Employee Handbook）中的相关规定。", ""
     )
 
+    cleaned_content = re.sub(
+        r"以上(?:内容|信息|回答)(?:均)?基于示例知识库《[^》]+》中的相关内容。",
+        "",
+        cleaned_content,
+    )
+    cleaned_content = re.sub(
+        r"以上(?:内容|信息|回答)(?:均)?基于[^。\n]*知识库[^。\n]*。",
+        "",
+        cleaned_content,
+    )
+    cleaned_content = re.sub(
+        r"以上(?:内容|信息|回答)(?:基于|来自)[^。\n]*参考了\s*\d+\s*个相关片段。",
+        "",
+        cleaned_content,
+    )
+    cleaned_content = re.sub(
+        r"以上(?:内容|信息|回答)(?:基于|来自)[^。\n]*参考了[^。\n]*片段。",
+        "",
+        cleaned_content,
+    )
+    cleaned_content = re.sub(
+        r"以上(?:内容|信息|回答)[^。\n]*AcmeTech_Employee_Handbook\.pdf[^。\n]*参考了[^。\n]*。",
+        "",
+        cleaned_content,
+    )
+
     cleaned_content = re.sub(r"\n{3,}", "\n\n", cleaned_content).strip()
     return cleaned_content
 
 
 def append_rag_observability_note(content: str, hit_count: int, source: str) -> str:
-    """给回答补一条更自然的轻量来源说明。"""
-    note = f"以上内容基于示例知识库《{source}》中的相关内容。"
+    """清理回答正文，把来源提示统一交给 UI badge 展示。"""
     cleaned_content = polish_rag_answer_content(content)
-    if not cleaned_content:
-        return note
-    if note in cleaned_content:
-        return cleaned_content
-    return f"{cleaned_content}\n\n{note}"
+    return cleaned_content or content.strip()
 
 
 def build_rag_response_metadata(knowledge_base_result: dict[str, str | int] | None) -> dict:
@@ -164,11 +206,13 @@ def build_rag_response_metadata(knowledge_base_result: dict[str, str | int] | No
 
     hit_count = int(knowledge_base_result.get("hit_count", 0) or 0)
     source = str(knowledge_base_result.get("source", "示例知识库") or "示例知识库")
+    status = str(knowledge_base_result.get("status", "hit" if hit_count > 0 else "miss") or "miss")
     return {
         RAG_RESPONSE_METADATA_KEY: {
-            "hit": hit_count > 0,
+            "hit": status == "hit" and hit_count > 0,
             "hit_count": hit_count,
             "source": source,
+            "status": status,
         }
     }
 
@@ -180,22 +224,48 @@ async def retrieve_knowledge_base(state: AgentState, config: RunnableConfig) -> 
         None,
     )
     if latest_human_message is None:
-        return {"knowledge_base_result": {"hit_count": 0, "source": "", "context": ""}}
+        return {"knowledge_base_result": build_knowledge_base_result(hit_count=0, source="", context="", status="error")}
 
-    raw_result = database_search_func(latest_human_message.content)
+    try:
+        raw_result = database_search_func(latest_human_message.content)
+    except Exception as exc:
+        return {
+            "knowledge_base_result": build_knowledge_base_result(
+                hit_count=0,
+                source="示例知识库",
+                context=f"知识库检索失败：{exc}",
+                status="error",
+            )
+        }
+
     try:
         result = json.loads(raw_result)
     except Exception:
-        result = {
-            "hit_count": 0,
-            "source": "示例知识库",
-            "context": "知识库检索结果解析失败。",
-        }
+        result = build_knowledge_base_result(
+            hit_count=0,
+            source="示例知识库",
+            context="知识库检索结果解析失败。",
+            status="error",
+        )
+    else:
+        result.setdefault("status", "hit" if int(result.get("hit_count", 0) or 0) > 0 else "miss")
     return {"knowledge_base_result": result}
 
 
 async def acall_model(state: AgentState, config: RunnableConfig) -> AgentState:
     knowledge_base_result = extract_knowledge_base_result(state)
+    knowledge_base_status = (
+        str(knowledge_base_result.get("status", "")) if knowledge_base_result else ""
+    )
+    if knowledge_base_status == "error":
+        return {
+            "messages": [
+                AIMessage(
+                    content=RAG_ERROR_RESPONSE_TEMPLATE,
+                    response_metadata=build_rag_response_metadata(knowledge_base_result),
+                )
+            ]
+        }
     if knowledge_base_result and knowledge_base_result.get("hit_count", 0) == 0:
         return {
             "messages": [

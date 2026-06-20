@@ -44,10 +44,13 @@ def get_knowledge_base_badge(message: ChatMessage) -> str | None:
     if not isinstance(knowledge_base, dict):
         return None
 
+    status = str(knowledge_base.get("status", "hit" if knowledge_base.get("hit") else "miss"))
     hit = bool(knowledge_base.get("hit"))
     hit_count = knowledge_base.get("hit_count", 0)
     source = knowledge_base.get("source", "示例知识库")
 
+    if status == "error":
+        return f"知识库检索异常：{source}"
     if hit:
         return f"知识库命中：{source}，命中 {hit_count} 个片段"
     return f"知识库未命中：{source}"
@@ -347,11 +350,13 @@ async def main() -> None:
         st.chat_message("human").write(user_input)
         try:
             if use_streaming:
+                stream_tokens = agent_client.agent != "rag-assistant"
                 stream = agent_client.astream(
                     message=user_input,
                     model=model,
                     thread_id=st.session_state.thread_id,
                     user_id=user_id,
+                    stream_tokens=stream_tokens,
                 )
                 await draw_messages(stream, is_new=True)
                 # 为流式回答补一段语音输出

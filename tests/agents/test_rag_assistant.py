@@ -8,6 +8,7 @@ from langchain_core.runnables import RunnableLambda
 
 from agents.rag_assistant import (
     NO_HIT_RESPONSE_TEMPLATE,
+    RAG_ERROR_RESPONSE_TEMPLATE,
     append_rag_observability_note,
     acall_model,
     build_rag_response_metadata,
@@ -59,15 +60,19 @@ def test_append_rag_observability_note():
     content = "根据员工手册，年假需要提前申请。"
     output = append_rag_observability_note(content, 3, "AcmeTech_Employee_Handbook.pdf")
 
-    assert "《AcmeTech_Employee_Handbook.pdf》" in output
-    assert "AcmeTech_Employee_Handbook.pdf" in output
-    assert "以上内容基于示例知识库" in output
     assert "年假需要提前申请。" in output
     assert "根据员工手册" not in output
 
 
 def test_append_rag_observability_note_does_not_duplicate_same_note():
     note = "以上内容基于示例知识库《AcmeTech_Employee_Handbook.pdf》中的相关内容。"
+    output = append_rag_observability_note(note, 3, "AcmeTech_Employee_Handbook.pdf")
+
+    assert output == note
+
+
+def test_append_rag_observability_note_normalizes_existing_note_to_real_source():
+    note = "以上内容基于示例知识库《Another_Handbook.pdf》中的相关内容。"
     output = append_rag_observability_note(note, 3, "AcmeTech_Employee_Handbook.pdf")
 
     assert output == note
@@ -80,6 +85,17 @@ def test_append_rag_observability_note_removes_generic_closing():
 
     assert "如果还有其他问题" not in output
     assert "公司支持混合办公" in output
+
+
+def test_append_rag_observability_note_removes_internal_reference_tail():
+    content = (
+        "根据员工手册，AcmeTech 提供医疗、牙科和视力保障。\n\n"
+        "以上内容基于示例知识库 AcmeTech_Employee_Handbook.pdf，参考了 1 个相关片段。"
+    )
+
+    output = append_rag_observability_note(content, 1, "AcmeTech_Employee_Handbook.pdf")
+
+    assert output == "AcmeTech 提供医疗、牙科和视力保障。"
 
 
 def test_polish_rag_answer_content_removes_formulaic_opening():
@@ -107,12 +123,14 @@ def test_build_rag_response_metadata():
             "hit_count": 2,
             "source": "AcmeTech_Employee_Handbook.pdf",
             "context": "Remote Work Policy ...",
+            "status": "hit",
         }
     )
 
     assert metadata["knowledge_base"]["hit"] is True
     assert metadata["knowledge_base"]["hit_count"] == 2
     assert metadata["knowledge_base"]["source"] == "AcmeTech_Employee_Handbook.pdf"
+    assert metadata["knowledge_base"]["status"] == "hit"
 
 
 def test_no_hit_template_is_stable():
@@ -195,6 +213,7 @@ async def test_retrieve_knowledge_base_returns_structured_result():
                 "hit_count": 2,
                 "source": "AcmeTech_Employee_Handbook.pdf",
                 "context": "Remote Work Policy ...",
+                "status": "hit",
             },
             ensure_ascii=False,
         ),
@@ -203,6 +222,35 @@ async def test_retrieve_knowledge_base_returns_structured_result():
 
     assert output["knowledge_base_result"]["hit_count"] == 2
     assert output["knowledge_base_result"]["source"] == "AcmeTech_Employee_Handbook.pdf"
+    assert output["knowledge_base_result"]["status"] == "hit"
+
+
+@pytest.mark.asyncio
+async def test_retrieve_knowledge_base_marks_parse_failure_as_error():
+    state = {
+        "messages": [HumanMessage(content="员工手册里有没有提到远程办公政策？")],
+    }
+    config = RunnableConfig(configurable={})
+
+    with patch("agents.rag_assistant.database_search_func", return_value="not-json"):
+        output = await retrieve_knowledge_base(state, config)
+
+    assert output["knowledge_base_result"]["status"] == "error"
+    assert output["knowledge_base_result"]["context"] == "知识库检索结果解析失败。"
+
+
+@pytest.mark.asyncio
+async def test_retrieve_knowledge_base_marks_search_exception_as_error():
+    state = {
+        "messages": [HumanMessage(content="员工手册里有没有提到远程办公政策？")],
+    }
+    config = RunnableConfig(configurable={})
+
+    with patch("agents.rag_assistant.database_search_func", side_effect=RuntimeError("network down")):
+        output = await retrieve_knowledge_base(state, config)
+
+    assert output["knowledge_base_result"]["status"] == "error"
+    assert "知识库检索失败" in output["knowledge_base_result"]["context"]
 
 
 @pytest.mark.asyncio
@@ -213,6 +261,7 @@ async def test_acall_model_returns_stable_no_hit_response_without_model_call():
             "hit_count": 0,
             "source": "AcmeTech_Employee_Handbook.pdf",
             "context": DEFAULT_NO_HIT_CONTEXT,
+            "status": "miss",
         },
     }
     config = RunnableConfig(configurable={})
@@ -222,6 +271,27 @@ async def test_acall_model_returns_stable_no_hit_response_without_model_call():
     assert output["messages"][0].content == NO_HIT_RESPONSE_TEMPLATE
     assert output["messages"][0].response_metadata["knowledge_base"]["hit"] is False
     assert output["messages"][0].response_metadata["knowledge_base"]["hit_count"] == 0
+    assert output["messages"][0].response_metadata["knowledge_base"]["status"] == "miss"
+
+
+@pytest.mark.asyncio
+async def test_acall_model_returns_error_response_for_knowledge_base_error():
+    state = {
+        "messages": [HumanMessage(content="员工手册里有没有提到远程办公政策？")],
+        "knowledge_base_result": {
+            "hit_count": 0,
+            "source": "AcmeTech_Employee_Handbook.pdf",
+            "context": "知识库检索结果解析失败。",
+            "status": "error",
+        },
+    }
+    config = RunnableConfig(configurable={})
+
+    output = await acall_model(state, config)
+
+    assert output["messages"][0].content == RAG_ERROR_RESPONSE_TEMPLATE
+    assert output["messages"][0].response_metadata["knowledge_base"]["hit"] is False
+    assert output["messages"][0].response_metadata["knowledge_base"]["status"] == "error"
 
 
 @pytest.mark.asyncio
@@ -232,6 +302,7 @@ async def test_acall_model_appends_rag_metadata_on_hit():
             "hit_count": 2,
             "source": "AcmeTech_Employee_Handbook.pdf",
             "context": "Remote Work Policy ...",
+            "status": "hit",
         },
     }
     config = RunnableConfig(configurable={})
@@ -255,3 +326,4 @@ async def test_acall_model_appends_rag_metadata_on_hit():
     assert response.response_metadata["provider"] == "test"
     assert response.response_metadata["knowledge_base"]["hit"] is True
     assert response.response_metadata["knowledge_base"]["hit_count"] == 2
+    assert response.response_metadata["knowledge_base"]["status"] == "hit"

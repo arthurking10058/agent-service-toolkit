@@ -5,7 +5,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 from client import AgentClientError
-from schema import ChatHistory, ChatMessage
+from schema import AgentInfo, ChatHistory, ChatMessage
 from schema.models import OpenAIModelName
 
 
@@ -49,6 +49,7 @@ def test_app_renders_knowledge_base_badge(mock_agent_client):
                     "hit": True,
                     "hit_count": 2,
                     "source": "AcmeTech_Employee_Handbook.pdf",
+                    "status": "hit",
                 }
             },
         ),
@@ -61,6 +62,64 @@ def test_app_renders_knowledge_base_badge(mock_agent_client):
     assert at.chat_message[1].caption[0].value == (
         "知识库命中：AcmeTech_Employee_Handbook.pdf，命中 2 个片段"
     )
+    assert not at.exception
+
+
+def test_app_renders_knowledge_base_miss_badge(mock_agent_client):
+    at = AppTest.from_file("../../src/streamlit_app.py").run()
+
+    prompt = "CTO 的邮箱地址是什么？"
+    response = "当前示例知识库里没有找到和这个问题直接相关的内容。"
+
+    mock_agent_client.ainvoke = AsyncMock(
+        return_value=ChatMessage(
+            type="ai",
+            content=response,
+            response_metadata={
+                "knowledge_base": {
+                    "hit": False,
+                    "hit_count": 0,
+                    "source": "AcmeTech_Employee_Handbook.pdf",
+                    "status": "miss",
+                }
+            },
+        ),
+    )
+
+    at.sidebar.toggle[0].set_value(False)
+    at.chat_input[0].set_value(prompt).run()
+
+    assert at.chat_message[1].markdown[0].value == response
+    assert at.chat_message[1].caption[0].value == "知识库未命中：AcmeTech_Employee_Handbook.pdf"
+    assert not at.exception
+
+
+def test_app_renders_knowledge_base_error_badge(mock_agent_client):
+    at = AppTest.from_file("../../src/streamlit_app.py").run()
+
+    prompt = "员工手册里有没有提到远程办公政策？"
+    response = "这次知识库检索出了点问题，暂时没法可靠地基于示例手册回答。"
+
+    mock_agent_client.ainvoke = AsyncMock(
+        return_value=ChatMessage(
+            type="ai",
+            content=response,
+            response_metadata={
+                "knowledge_base": {
+                    "hit": False,
+                    "hit_count": 0,
+                    "source": "AcmeTech_Employee_Handbook.pdf",
+                    "status": "error",
+                }
+            },
+        ),
+    )
+
+    at.sidebar.toggle[0].set_value(False)
+    at.chat_input[0].set_value(prompt).run()
+
+    assert at.chat_message[1].markdown[0].value == response
+    assert at.chat_message[1].caption[0].value == "知识库检索异常：AcmeTech_Employee_Handbook.pdf"
     assert not at.exception
 
 
@@ -171,6 +230,52 @@ async def test_app_streaming(mock_agent_client):
     assert tool_status.markdown[1].value == "输出："
     assert tool_status.markdown[2].value == "42"
     assert response.markdown[-1].value == "The answer is 42"
+    assert not at.exception
+
+
+@pytest.mark.asyncio
+async def test_app_rag_assistant_streaming_disables_token_stream(mock_agent_client):
+    prompt = "员工手册里有没有提到远程办公政策？"
+    final_ai_message = ChatMessage(
+        type="ai",
+        content="公司支持混合办公，每周最多可远程 3 天。",
+        response_metadata={
+            "knowledge_base": {
+                "hit": True,
+                "hit_count": 3,
+                "source": "AcmeTech_Employee_Handbook.pdf",
+                "status": "hit",
+            }
+        },
+    )
+
+    async def amessage_iter() -> AsyncGenerator[ChatMessage, None]:
+        yield final_ai_message
+
+    mock_agent_client.info.agents = [
+        AgentInfo(key="test-agent", description="Test agent"),
+        AgentInfo(key="chatbot", description="Chatbot"),
+        AgentInfo(key="rag-assistant", description="RAG assistant"),
+    ]
+    mock_agent_client.astream = Mock(return_value=amessage_iter())
+
+    at = AppTest.from_file("../../src/streamlit_app.py").run()
+
+    at.toggle[0].set_value(True)
+    at.sidebar.selectbox[1].set_value("rag-assistant")
+    at.chat_input[0].set_value(prompt).run()
+
+    mock_agent_client.astream.assert_called_with(
+        message=prompt,
+        model="gpt-5-nano",
+        thread_id=at.session_state.thread_id,
+        user_id=at.session_state.user_id,
+        stream_tokens=False,
+    )
+    assert at.chat_message[1].markdown[0].value == "公司支持混合办公，每周最多可远程 3 天。"
+    assert at.chat_message[1].caption[0].value == (
+        "知识库命中：AcmeTech_Employee_Handbook.pdf，命中 3 个片段"
+    )
     assert not at.exception
 
 
