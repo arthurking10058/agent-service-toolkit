@@ -76,9 +76,15 @@ It also includes a few demo-oriented retrieval safeguards:
 
 - fixed retrieval-first flow for `rag-assistant`
 - stable no-hit response handling
-- lightweight metadata for showing hit / no-hit state in the UI
+- lightweight metadata for showing hit / miss / error state in the UI
 - small chunk local database for the sample handbook
 - lightweight English retrieval hints for Chinese handbook questions
+
+The current UI-level knowledge-base states are:
+
+- `知识库命中`: relevant handbook content was retrieved and the answer should stay grounded in that content
+- `知识库未命中`: the example handbook did not return directly relevant content for the question
+- `知识库检索异常`: the retrieval step itself failed, so the app avoids presenting it as a normal no-hit result
 
 ## Recommended manual checks
 
@@ -120,6 +126,9 @@ The current demo should behave like this:
 - the UI shows a `知识库命中` badge for hit answers
 - no-hit questions clearly say the example knowledge base did not return relevant content
 - the UI shows a `知识库未命中` badge for no-hit answers
+- retrieval failures should be distinguishable from no-hit results
+- the UI shows a `知识库检索异常` badge for retrieval failures
+- for `rag-assistant`, the UI should present the cleaned final answer rather than token-level raw model wording
 
 ## Notes For This Repository Version
 
